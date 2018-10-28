@@ -1,5 +1,6 @@
-import sys, pygame, random
+import sys, pygame, random, ctypes
 from direction import Direction
+from colors import Colors
 
 KEY2DIR1 = {pygame.K_UP : Direction.UP,
            pygame.K_DOWN : Direction.DOWN,
@@ -11,7 +12,7 @@ KEY2DIR2 = {pygame.K_w : Direction.UP,
            pygame.K_a : Direction.LEFT,
            pygame.K_d : Direction.RIGHT}
 
-def zirkular(v, upper_value):
+def circular(v, upper_value):
     if v < 0:
         return upper_value
     elif v > upper_value:
@@ -19,14 +20,14 @@ def zirkular(v, upper_value):
     else:
         return v
 
-class Wurm:
+class Worm:
     # positions: von links oben nach unten, rechts 
-    def __init__(self,color,startposition,size_felder):
+    def __init__(self,color,start_position,size_fields):
         self.COLOR = color
         self.direction = Direction.RIGHT
-        self.positions = [startposition]
+        self.positions = [start_position]
         self.more = 3
-        self.size_felder = size_felder
+        self.size_fields = size_fields
         self.is_alive = True
     
     def set_direction(self,direction):
@@ -38,8 +39,8 @@ class Wurm:
             return
 
         # Liste positions beginnt beim Kopf
-        new_x = zirkular(self.positions[0][0] + self.direction[0], self.size_felder[0])
-        new_y = zirkular(self.positions[0][1] + self.direction[1], self.size_felder[1])
+        new_x = circular(self.positions[0][0] + self.direction[0], self.size_fields[0])
+        new_y = circular(self.positions[0][1] + self.direction[1], self.size_fields[1])
 
         new_position = [new_x, new_y]
         if self.more > 0:
@@ -69,66 +70,125 @@ class Wurm:
     def die(self):
         self.is_alive = False
 
-def calc_scaling(size, size_felder):
-    return (int(size[0] / size_felder[0]), int(size[1] / size_felder[1]))
+def calc_scaling(size, size_fields):
+    return (int(size[0] / size_fields[0]), int(size[1] / size_fields[1]))
 
-def draw_rect(screen, size, size_felder, field, color):
-    sx, sy = calc_scaling(size, size_felder)
+def draw_rect(screen, size, size_fields, field, color):
+    sx, sy = calc_scaling(size, size_fields)
     rect = pygame.Rect(field[0]*sx, field[1]*sy, sx, sy)
     pygame.draw.rect(screen, color, rect)
     return
 
-
-def draw_wurm(screen, size, size_felder, wurm):
-    for position in wurm.get_positions():
-        draw_rect(screen, size, size_felder, position, wurm.get_color())
+def draw_worm(screen, size, size_fields, worm):
+    for position in worm.get_positions():
+        draw_rect(screen, size, size_fields, position, worm.get_color())
     return
 
-def draw_food(screen, size, size_felder, food):
-    draw_rect(screen, size, size_felder, food, (250, 40, 40))
+def draw_food(screen, size, size_fields, food):
+    draw_rect(screen, size, size_fields, food, (250, 40, 40))
     return
 
-def random_field(size_felder):
-    return [random.randint(0, size_felder[0]), random.randint(0, size_felder[1])]
+def random_field(size_fields):
+    return [random.randint(0, size_fields[0]), random.randint(0, size_fields[1])]
 
-def calc_new_food_position(size_felder, wuermer):
-    all_wurm_positions = []
-    for wurm in wuermer: all_wurm_positions += wurm.get_positions()
-    new_position = random_field(size_felder)
-    while new_position in all_wurm_positions:
-        new_position = random_field(size_felder)
+
+
+def calc_new_free_position_old(size_fields, worms):
+    all_worm_positions = []
+    for worm in worms: all_worm_positions += worm.get_positions()
+    new_position = random_field(size_fields)
+    while new_position in all_worm_positions:
+        new_position = random_field(size_fields)
     return new_position
 
-def new_wuermer():
-    wurm1 = Wurm((100,200,100), [10,10], size_felder)
-    wurm2 = Wurm((200,100,100), [30,30], size_felder)
-    return ([wurm1, wurm2], [KEY2DIR1, KEY2DIR2])
+def new_worms():
+    worm1 = Worm((100,200,100), [10,10], size_fields)
+    worm2 = Worm((200,100,100), [30,30], size_fields)
+    return ([worm1, worm2], [KEY2DIR1, KEY2DIR2])
+
+class Arena:
+    def __init__(self, size_fields):
+        self.worms = []
+        self.dead_worms = []
+        self.worm_colors = Colors.list()
+        self.key_list = [KEY2DIR1, KEY2DIR2]
+        self.size_fields = size_fields
+        self.food = self.calc_new_free_position()
+        self.growth_factor = 1
+
+    def init(self, n_worms):
+        self.worms = []
+        for i in range(n_worms):
+            self.create_worm()
+
+    def get_all_worms(self):
+        return list(self.worms) + list(self.dead_worms)
+
+    def get_all_food(self):
+        return [self.food]
+
+    def create_worm(self):
+        new_index = len(self.worms)
+        self.worms += [Worm(self.worm_colors[new_index], self.calc_new_free_position(), self.size_fields)]
+
+    def calc_new_free_position(self):
+        occupied_positions = []
+        for worm in self.worms: occupied_positions += worm.get_positions()
+        new_position = self.random_field()
+        while new_position in occupied_positions:
+            new_position = self.random_field()
+        return new_position
+
+    def random_field(self):
+        return [random.randint(0, self.size_fields[0]), random.randint(0, self.size_fields[1])]
+
+    def handle_keys(self,keys):
+        for worm, keys_map in zip(self.worms, self.key_list[:len(self.worms)]):
+            key_applied = False
+            for key in keys:
+                if key in keys_map.keys() and not key_applied:
+                    worm.set_direction(keys_map[key])
+                    key_applied = True
+
+
+    def tick(self):
+        for worm in self.worms:
+            worm.move()
+            if worm.collides_with([self.food]):
+                worm.grow(self.growth_factor)
+                self.growth_factor += 1
+                self.food = self.calc_new_free_position()
+
+            for other_worm in self.worms:
+                if other_worm != worm and worm.collides_with(other_worm.get_positions()):
+                    worm.die()
+
 
 pygame.init()
 
 # Martin Beamer: (1920, 1080)
 infoObject = pygame.display.Info()
-size = infoObject.current_w, infoObject.current_h
+ctypes.windll.user32.SetProcessDPIAware()
+size = int(infoObject.current_w*0.8), int(infoObject.current_h*0.8)
 
 # with open('test.txt', 'w') as f:
 #     f.write(str(size))
 
-size_felder = 100,50
+size_fields = 100,50
 black = 0, 0, 0
 
-screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
+screen = pygame.display.set_mode((size[0], size[1]), pygame.NOFRAME)
 
 # ball = pygame.image.load("intro_ball.gif")
 # ballrect = ball.get_rect()
 
 mainloop = True
 
-wuermer, wuermer_keys_map = new_wuermer()
-
-food = [size_felder[0]/2, size_felder[1]/2]
-growth_factor = 1
+arena = Arena(size_fields)
+arena.init(2)
 
 while mainloop:
+    key_list = []
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             mainloop = False
@@ -136,27 +196,20 @@ while mainloop:
             if event.key == pygame.K_ESCAPE:
                 mainloop = False
             elif event.key == pygame.K_F5:
-                wuermer, wuermer_keys_map = new_wuermer()
+                arena.init(2)
             else:
-                for wurm, keys_map in zip(wuermer, wuermer_keys_map):
-                    if event.key in keys_map.keys():
-                        wurm.set_direction(keys_map[event.key])
-
+                key_list += [event.key]
+    
+    arena.handle_keys(key_list)
+                
     screen.fill(black)
 
-    for wurm in wuermer:
-        draw_wurm(screen, size, size_felder, wurm)
-        draw_food(screen, size, size_felder, food)
-        wurm.move()
-        if wurm.collides_with ([food]):
-            wurm.grow(growth_factor)
-            growth_factor += 1
-            food = calc_new_food_position (size_felder, wuermer)
+    arena.tick()
 
-        for other_wurm in wuermer:
-            if other_wurm != wurm and wurm.collides_with(other_wurm.get_positions()):
-                wurm.die()
+    for food in arena.get_all_food():
+        draw_food(screen, size, size_fields, food)
+    for worm in arena.get_all_worms():
+        draw_worm(screen, size, size_fields, worm)
 
-    # screen.blit(ball, ballrect)
     pygame.display.flip()
     pygame.time.wait(50)
