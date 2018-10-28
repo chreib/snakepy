@@ -8,6 +8,10 @@ class Colors:
     PURPLE = (200, 100, 200)
     CYAN = (100, 200, 200)
 
+    BRIGHT_RED = (255,0,0)
+    BRIGHT_GREEN = (0,255,0)
+
     def list():
         return list([Colors.GREEN, Colors.RED, Colors.BLUE,
                      Colors.YELLOW, Colors.PURPLE, Colors.CYAN])
+
