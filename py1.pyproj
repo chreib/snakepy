@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>43727824-b22a-4a81-9fb3-d9e01eb24dbd</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>py1.py</StartupFile>
+    <StartupFile>main.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -21,10 +21,12 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="py1.py" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="test.txt" />
+    <Compile Include="arena.py" />
+    <Compile Include="colors.py" />
+    <Compile Include="direction.py" />
+    <Compile Include="food.py" />
+    <Compile Include="main.py" />
+    <Compile Include="worm.py" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
